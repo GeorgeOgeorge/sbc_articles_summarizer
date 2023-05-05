@@ -1,71 +1,102 @@
-import re
 import wget
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from pdfminer.high_level import extract_text
+from transformers import pipeline, T5Tokenizer, T5ForConditionalGeneration
+from langdetect import detect as detect_lang
 
-from transformers import PegasusForConditionalGeneration, PegasusTokenizer, pipeline
-
-from backend.constants import (
-    EXTRACT_MAIN_SECTIONS,
-    TEMP_FILE_PATH,
-    SBC_SEARCH_STRING,
-    EXTRACT_ABSTRACT,
-    EXTRACT_SECTION_INTEVAL
-)
+from backend.constants import TEMP_FILE_PATH, SBC_SEARCH_STRING
+from backend.utils import extract_text_rgx
 
 
 class ArticleSummarizer:
 
-    def summarize_file(self, file_path, output_path) -> None:
+    def summarize_file(self, file_path: str, output_path: str) -> None:
+        """summraizes articles and creates a text file as output
+            Accepted langueges: pt, en
+
+        Args:
+            file_path (str): article path
+            output_path (str): directory path for output text file
+        """
+        summarize_text = {
+            'pt': self.summarize_pt,
+            'en': self.summarize_en
+        }
+
         pdf_text = extract_text(file_path)
+        final_text = extract_text_rgx(pdf_text)
 
-        sections = re.findall(pattern=EXTRACT_MAIN_SECTIONS, string=pdf_text)
+        text_lang = detect_lang(final_text)
+        min_tokens = int(len(final_text.split(" ")) * 0.6)
+        max_tokens = int(len(final_text.split(" ")) * 0.7)
 
-        abstract = re.findall(pattern=EXTRACT_ABSTRACT, string=pdf_text, flags=re.DOTALL)[0].replace('\n', '')
-
-        conclusion_section = re.findall(
-            pattern=EXTRACT_SECTION_INTEVAL.format(start_section=sections[-2], end_section=sections[-1]),
-            string=pdf_text,
-            flags=re.DOTALL
-        )[0].replace('\n', '')
-
-        final_text = abstract+' '+conclusion_section
-
-        model_name = 'google/pegasus-xsum'
-        pegasus_tokenizer = PegasusTokenizer.from_pretrained(model_name)
-
-        """
-            using pre_trained model to summarize, takes longer but more precise
-
-            pegasus_model = PegasusForConditionalGeneration.from_pretrained(model_name)
-            tokens = pegasus_tokenizer(final_text, truncation=True, padding='longest', return_tensors='pt')
-            encoded_symmary = pegasus_model.generate(**tokens)
-            decoded_summary = pegasus_tokenizer.decode(encoded_symmary[0], skip_special_tokens=True)
-        """
-
-        """ using pipeline to summarize """
-        summarizer = pipeline('summarization', model=model_name, tokenizer=pegasus_tokenizer, framework='pt')
-        decoded_summary = summarizer(final_text, max_length=150, min_length=50)[0]['summary_text']
+        decoded_summary = summarize_text[text_lang](final_text, max_tokens, min_tokens)
 
         with open(f'{output_path}/summary.txt', 'w') as output_file:
             output_file.write(decoded_summary)
 
-    def summarize_search(
+    def summarize_en(self, final_text: str, max_tokens: int, min_tokens: int) -> str:
+        """ summarizes text on english
+
+        Args:
+            final_text (str): text to be summarized
+            max_tokens (int): max number of tokens(words) to be summarized
+            min_tokens (int): min number of tokens(words) to be summarized
+
+        Returns:
+            str: summaried
+        """
+        summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+        decoded_summary = summarizer(final_text, max_length=max_tokens, min_length=min_tokens, do_sample=False)
+
+        return decoded_summary[0]['summary_text']
+
+    def summarize_pt(self, final_text: str, min_tokens: int, max_tokens: int) -> str:
+        """ summarizes text on portuguese
+
+        Args:
+            final_text (str): text to be summarized
+            min_tokens (int): max number of tokens(words) to be summarized
+            max_tokens (int): min number of tokens(words) to be summarized
+
+        Returns:
+            str: summaried
+        """
+        token_name = 'unicamp-dl/ptt5-base-portuguese-vocab'
+        model_name = 'phpaiola/ptt5-base-summ-xlsum'
+
+        tokenizer = T5Tokenizer.from_pretrained(token_name)
+        model_pt = T5ForConditionalGeneration.from_pretrained(model_name)
+
+        inputs = tokenizer.encode(final_text, max_length=max_tokens, truncation=True, return_tensors='pt')
+        summary_ids = model_pt.generate(
+            inputs,
+            max_length=max_tokens,
+            min_length=min_tokens,
+            num_beams=5,
+            no_repeat_ngram_size=3,
+            early_stopping=True
+        )
+        summary = tokenizer.decode(summary_ids[0])
+
+        return summary
+
+    def article_search(
         self,
-        search_title: str=' ',
-        search_term_inside: str=' ',
-        search_summary: str=' ',
-        search_authors: str=' ',
-        search_keywords: str=' ',
-        search_event_journal: str=' ',
-        search_from_month: str=' ',
-        search_from_day: str=' ',
-        search_from_yaer: str=' ',
-        search_to_month: str=' ',
-        search_to_day: str=' ',
-        search_to_year: str=' '
+        search_title: str = ' ',
+        search_term_inside: str = ' ',
+        search_summary: str = ' ',
+        search_authors: str = ' ',
+        search_keywords: str = ' ',
+        search_event_journal: str = ' ',
+        search_from_month: str = ' ',
+        search_from_day: str = ' ',
+        search_from_yaer: str = ' ',
+        search_to_month: str = ' ',
+        search_to_day: str = ' ',
+        search_to_year: str = ' '
     ) -> None:
 
         driver=webdriver.Firefox()

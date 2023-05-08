@@ -1,4 +1,4 @@
-EXTRACT_MAIN_SECTIONS = r"\d+\.\s\w+\s*\n"
+EXTRACT_MAIN_SECTIONS = r"\d+\.\s\w+(?:[\w~˜çáàâãéèêíìîóòôõúùû]*)\s*\n"
 EXTRACT_ABSTRACT = r"(?<=\n\nAbstract\. ).*?(?=\n\n)"
 EXTRACT_SECTION_INTEVAL = r"(?<={start_section}).*?(?={end_section})"
 

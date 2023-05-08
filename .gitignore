@@ -1,2 +1,8 @@
-venv
+# files_extension
 *.pyc
+*.cpython*
+
+# dirs
+venv
+temp
+__pycache__/

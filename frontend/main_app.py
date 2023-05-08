@@ -1,74 +1,49 @@
 import customtkinter
-from customtkinter import filedialog
+from customtkinter import CTkFrame
 
-from backend.file_scrapper import ArticleSummarizer
+from frontend.components.navigation import Navigation
+from frontend.components.summarize_frame import SummarizeFrame
 
 customtkinter.set_appearance_mode('dark')
 customtkinter.set_default_color_theme('dark-blue')
 
-# TODO add progress bar to summazing process
-class App(customtkinter.CTk):
-    file_path = None
-    output_path = None
-    article_summarizer = ArticleSummarizer()
 
+class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title('AutoResumo')
-        self.minsize(400, 300)
+        self.title('image_example.py')
+        self.geometry('700x450')
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
 
-        self.title_lebel = customtkinter.CTkLabel(master=self, text="AutoResumo", font=('roboto', 25))
-        self.title_lebel.pack(padx=20, pady=5)
+        self.navigation_frame: Navigation = Navigation(master=self, corner_radius=5)
+        self.navigation_frame.grid(row=0, column=0, sticky='nsew')
+        self.navigation_frame.grid_rowconfigure(4, weight=1)
 
-        self.sub_title_label = customtkinter.CTkLabel(master=self, text="sistema web para automação de resumos com processamento de linguagem natural", font=('roboto', 11))
-        self.sub_title_label.pack(padx=20, pady=3)
+        self.summarize_frame: SummarizeFrame = SummarizeFrame(master=self)
 
-        self.select_article_button = customtkinter.CTkButton(
-            master=self,
-            command=self.select_file_path,
-            text='escolha artigo',
-            font=('roboto', 13.5)
+        self.render_frame()
+
+    def render_frame(self, frame_name='summarize_frame'):
+        ignore_widgets = [self.navigation_frame]
+        self.navigation_frame.search_frame_button.configure(
+            fg_color=('gray75', 'gray25') if frame_name == 'search_frame' else 'transparent'
         )
-        self.select_article_button.pack(padx=20, pady=15)
-
-        self.chosen_input_label = customtkinter.CTkLabel(master=self, text="Escolha artigo a ser resumido", font=('roboto', 13.5))
-        self.chosen_input_label.pack(padx=20, pady=5)
-
-        self.select_output_button = customtkinter.CTkButton(
-            master=self,
-            command=self.select_output_path,
-            text='escolha local de saide de pdf',
-            font=('roboto', 13.5)
+        self.navigation_frame.summarize_frame_button.configure(
+            fg_color=('gray75', 'gray25') if frame_name == 'summarize_frame' else 'transparent'
         )
-        self.select_output_button.pack(padx=20, pady=15)
 
-        self.chosen_output_label = customtkinter.CTkLabel(master=self, text="escolha local se salvamento do resumo", font=('roboto', 13.5))
-        self.chosen_output_label.pack(padx=20, pady=5)
+        try:
+            frame = self.__getattribute__(frame_name)
+        except:
+            print(f'{frame_name} unlisted! unrendering all frames!')
+        else:
+            frame.grid(row=0, column=1, sticky='nsew')
+            ignore_widgets.append(frame)
 
-        self.button = customtkinter.CTkButton(master=self, command=self.sum_article, text="Resumir", font=('roboto', 15))
-        self.button.pack(padx=20, pady=20)
+        map(lambda widget: self.unrender_frame(widget, ignore_widgets), self.winfo_children())
 
-    def select_file_path(self) -> None:
-        """selects file path to be summarized"""
-        file_path = filedialog.askopenfilename(
-            initialdir="~/",
-            title="Select a article",
-            filetypes=(("Articles", "*.pdf*"), ("all files", "*.*"))
-        )
-        self.file_path = file_path
-        self.chosen_input_label.configure(text=file_path)
-
-    def select_output_path(self) -> None:
-        """selects directory path to dump file summarize output file"""
-        file_path = filedialog.askdirectory(
-            initialdir="~/",
-            title="Select a article",
-            mustexist=True
-        )
-        self.output_path = file_path
-        self.chosen_output_label.configure(text=file_path)
-
-    def sum_article(self):
-        """calls summarizer"""
-        self.article_summarizer.summarize_file(file_path=self.file_path, output_path=self.output_path)
+    def unrender_frame(widget, ignore_widgets):
+        if widget not in ignore_widgets and type(widget) is CTkFrame:
+            widget.grid_forget()

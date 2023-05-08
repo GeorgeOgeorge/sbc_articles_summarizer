@@ -26,15 +26,20 @@ class ArticleSummarizer:
         }
 
         pdf_text = extract_text(file_path)
+        text_lang = detect_lang(final_text)
+
+        breakpoint()
         final_text = extract_text_rgx(pdf_text)
 
-        text_lang = detect_lang(final_text)
         min_tokens = int(len(final_text.split(" ")) * 0.6)
         max_tokens = int(len(final_text.split(" ")) * 0.7)
 
         decoded_summary = summarize_text[text_lang](final_text, max_tokens, min_tokens)
 
         with open(f'{output_path}/summary.txt', 'w') as output_file:
+            output_file.write("\n-----------------texto orignial-----------------\n")
+            output_file.write(final_text)
+            output_file.write("\n-----------------texto resumido-----------------\n")
             output_file.write(decoded_summary)
 
     def summarize_en(self, final_text: str, max_tokens: int, min_tokens: int) -> str:

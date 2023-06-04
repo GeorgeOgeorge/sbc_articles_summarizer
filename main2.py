@@ -8,7 +8,7 @@ from pdf2image import convert_from_path
 
 # fazer assincorno
 # extrair texto  https://towardsdatascience.com/extracting-text-from-scanned-pdf-using-pytesseract-open-cv-cd670ee38052
-# deletar arquivos de pagina temporario
+# deletar arquivos de pagina temporario 
 
 def preprocess_image(original_img):
     image = cv2.cvtColor(original_img, code=cv2.COLOR_BGR2GRAY)
